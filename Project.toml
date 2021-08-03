@@ -1,6 +1,6 @@
 name = "ACEgnns"
 uuid = "98e0f63a-1ed7-4701-8c83-944c20c93b0d"
-authors = ["Christoph Ortner <c.ortner@warwick.ac.uk> and contributors"]
+authors = ["Christoph Ortner <christophortner0@gmail.com> and contributors"]
 version = "0.1.0"
 
 [compat]
