@@ -1,0 +1,13 @@
+name = "ACEgnns"
+uuid = "98e0f63a-1ed7-4701-8c83-944c20c93b0d"
+authors = ["Christoph Ortner <c.ortner@warwick.ac.uk> and contributors"]
+version = "0.1.0"
+
+[compat]
+julia = "1.6"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
