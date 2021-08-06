@@ -3,6 +3,10 @@ uuid = "98e0f63a-1ed7-4701-8c83-944c20c93b0d"
 authors = ["Christoph Ortner <christophortner0@gmail.com> and contributors"]
 version = "0.1.0"
 
+[deps]
+ACE = "3e8ccfd2-c8b0-11ea-32f1-f3a5990fd77a"
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+
 [compat]
 julia = "1.6"
 
