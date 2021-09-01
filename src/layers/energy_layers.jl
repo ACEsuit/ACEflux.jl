@@ -3,6 +3,7 @@ using ACE: State, NaiveTotalDegree, SymmetricBasis, evaluate, LinearACEModel, se
 import ChainRulesCore, ChainRules
 import ChainRulesCore: rrule, NoTangent 
 using Flux
+using Flux: @functor
 using ACE
 using StaticArrays
 
@@ -40,6 +41,7 @@ function NL_ENERGY_ACE(maxdeg, ord, Nprop, Tσ)
    return NL_ENERGY_ACE(W,LM,Tσ)
 end
 
+@functor NL_ENERGY_ACE
 
 function (y::NL_ENERGY_ACE)(at)
    Rs = []
@@ -106,6 +108,7 @@ function ENERGY_ACE(maxdeg, ord, Nprop)
    return ENERGY_ACE(W,LM)
 end
 
+@functor ENERGY_ACE
 
 function (y::ENERGY_ACE)(at)
    Rs = []
@@ -140,4 +143,57 @@ function ChainRules.rrule(y::ENERGY_ACE, at)
       return (dp * grad, NoTangent()) 
    end
    return E, adj
+end
+
+#########################################################################
+
+mutable struct LLayer{TW, TM}
+   weight::TW
+   m::TM 
+end
+
+function LLayer(maxdeg, ord, k)
+   #building the basis
+   B1p = ACE.Utils.RnYlm_1pbasis(; maxdeg=maxdeg, D = NaiveTotalDegree())
+   pibasis = PIBasis(B1p, ord, maxdeg; property = ACE.Invariant())
+   basis = SymmetricBasis(pibasis, ACE.Invariant());   
+
+   #create a multiple property model
+   W = rand(length(basis))
+   LM = LinearACEModel(basis, W, evaluator = :standard) 
+   return LLayer(W,LM)
+end
+
+@functor LLayer
+
+function (y::LLayer)(at)
+   Rs = []
+   nlist = neighbourlist(at, cutoff(EMT()))
+   for i = 1:length(at)
+      Js, tmpRs, Zs = JuLIP.Potentials.neigsz(nlist, at, i); z0 = at.Z[i]
+      tmpRs=ACEConfig([State(rr = tmpRs[j]) for j in 1:length(tmpRs)])
+      append!(Rs,[tmpRs])
+   end 
+   set_params!(y.m, y.weight)
+   E = sum([getproperty(evaluate(y.m ,r), :val) for r in Rs])
+   return [E]
+end
+
+function ChainRules.rrule(y::LLayer, at)
+   Rs = []
+   nlist = neighbourlist(at, cutoff(EMT()))
+   for i = 1:length(at)
+      Js, tmpRs, Zs = JuLIP.Potentials.neigsz(nlist, at, i); z0 = at.Z[i]
+      tmpRs=ACEConfig([State(rr = tmpRs[j]) for j in 1:length(tmpRs)])
+      append!(Rs,[tmpRs])
+   end 
+   set_params!(y.m, y.weight)
+   E = sum([getproperty(evaluate(y.m ,r), :val) for r in Rs])
+
+   function adj(dp)
+      gparams = sum([grad_params(y.m ,r) for r in Rs])
+      @show dp .* getproperty.(gparams, :val)
+      return (dp .* getproperty.(gparams, :val), NoTangent()) 
+   end
+   return [E], adj
 end
