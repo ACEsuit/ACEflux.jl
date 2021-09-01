@@ -6,9 +6,8 @@ using JuLIP
 #   size of data
 # a.- change the number of atoms in the structure 
 # b.- change the size of each atom
-# c.- change the number of atoms in the structure 
 #   size of parameters
-# d.- change maxdeg 
+# c.- change maxdeg 
 
 
 #create several atoms
@@ -21,7 +20,7 @@ for _ in 1:100 # a.-
 end
 
 #make our basis
-maxdeg = 12 # d.-
+maxdeg = 12 # c.-
 ord = 3
 B1p = ACE.Utils.RnYlm_1pbasis(; maxdeg=maxdeg, D = NaiveTotalDegree())
 pibasis = PIBasis(B1p, ord, maxdeg; property = ACE.Invariant())
