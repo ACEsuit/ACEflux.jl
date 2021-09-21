@@ -9,8 +9,15 @@ end
 
 NeighbourLists.cutoff(V::FluxPotential) = V.cutoff
 
-function JuLIP.evaluate!(tmp, V::FluxPotential, R, Z, z0)
-   R=ACEConfig([State(rr = R[j]) for j in 1:length(R)]) #TODO how to get this derivated or out of eval
+
+stateifier(R) = ACEConfig([State(rr = R[j]) for j in 1:length(R)])
+
+function ChainRules.rrule(::typeof(stateifier), R)
+   return stateifier(R), dp -> dp
+end
+
+function JuLIP.evaluate!(tmp, V::FluxPotential, tR, Z, z0)
+   R = stateifier(tR)#TODO how to get this derivated or out of eval
    tmp = V(R)
    return tmp
 end
@@ -66,6 +73,7 @@ function JuLIP.forces!(frc, tmp, calc::FluxPotential, at::Atoms;
    nlist = neighbourlist(at, cutoff(calc))
    for i in domain
       j, R, Z = JuLIP.Potentials.neigsz!(tmp, nlist, at, i)
+      @show j
       if length(j) > 0
          JuLIP.evaluate_d!(tmp.dV, tmp, calc, R, Z, at.Z[i])
          for a = 1:length(j)
@@ -76,3 +84,4 @@ function JuLIP.forces!(frc, tmp, calc::FluxPotential, at::Atoms;
    end
    return frc
 end
+
