@@ -27,6 +27,7 @@ function FluxEnergy(calc::FluxPotential, at::Atoms)
    return sum([calc(r) for r in domain_R])
 end
 
+#still not working
 function FluxForces(calc::FluxPotential, at::Atoms)
    tmp = JuLIP.Potentials.alloc_temp(calc, at)
    domain=1:length(at)
@@ -40,7 +41,6 @@ function FluxForces(calc::FluxPotential, at::Atoms)
       push!(J, j)
    end
    frc = zeros(SVector{3, Float64}, length(at))
-   @show length(frc)
    for (i,r) in enumerate(domain_R)
       tmpfrc = Zygote.gradient(calc, r)[1]
       for a = 1:length(J[i])

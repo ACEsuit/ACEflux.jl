@@ -6,6 +6,21 @@ using Flux: @functor
 using ACE
 using ACE: State, NaiveTotalDegree, SymmetricBasis, evaluate, LinearACEModel, set_params!, grad_params, grad_config, grad_params_config
 
+#functions for converting SVectors and matrices
+function svector2matrix(sv)
+   M = zeros(length(sv[1]), length(sv))
+   for i in 1:length(sv)
+      M[:,i] = sv[i]
+   end
+   return M
+end
+
+function matrix2svector(M)
+   sv = [SVector{size(M)[1]}(M[:,i]) for i in 1:size(M)[2]]
+   return sv
+end
+
+getprops(x) = getproperty.(x, :val)
 
 # # ------------------------------------------------------------------------
 # #    ACE linear layer
@@ -33,9 +48,8 @@ function Linear_ACE(maxdeg, ord, Nprop)
    basis = SymmetricBasis(pibasis, ACE.Invariant());   
 
    #create a multiple property model
-   W = rand(Nprop, length(basis))  #matrix for Flux 
-   Wsv =  [SVector{size(W)[1]}(W[:,i]) for i in 1:size(W)[2]]  #SVector for ACE
-   LM = LinearACEModel(basis, Wsv, evaluator = :standard) 
+   W = rand(Nprop, length(basis))
+   LM = LinearACEModel(basis, matrix2svector(W), evaluator = :standard) 
    return Linear_ACE(W,LM)
 end
 
@@ -45,39 +59,30 @@ end
 (y::Linear_ACE)(cfg) = _eval_linear_ACE(y.weight, y.m, cfg)
 
 #energy evaluation
-function _eval_linear_ACE(Wt, M, cfg)
-   W = [SVector{size(Wt)[1]}(Wt[:,i]) for i in 1:size(Wt)[2]] #SVector conversion
-   set_params!(M, W)
+function _eval_linear_ACE(W, M, cfg)
+   set_params!(M, matrix2svector(W))
    E = getproperty.(evaluate(M ,cfg), :val)
    return E
 end
 
 #adj is outside chainrule so we can define a chainrule for it
-function adj(dp, Wt, M, cfg)
+function adj(dp, W, M, cfg)
 
-   W = [SVector{size(Wt)[1]}(Wt[:,i]) for i in 1:size(Wt)[2]]  #SVector conversion
-   set_params!(M, W) 
+   set_params!(M, matrix2svector(W)) 
 
-   #Params derivative
-   gparams = grad_params(M ,cfg)  #gradient is returned as SVector for now
-   #make them numbers rather than invariants
-   grad = zeros(SVector{length(gparams[1])},length(gparams))
-   for i = 1:length(gparams)
-      grad[i] = getproperty.(gparams[i], :val)
-   end
-   #multiply by dp
-   temp_grad = [dp .* grad[i] for i in 1:length(grad)]
-   #we convert our SVector into a matrix
-   gradMatrix = zeros(length(temp_grad[1]), length(temp_grad))
-   for i in 1:length(temp_grad)
-      gradMatrix[:,i] = temp_grad[i]
+   g_p = getprops.(grad_params(M ,cfg))
+   for i = 1:length(g_p) 
+      g_p[i] = g_p[i] .* dp
    end
 
-   #Forces
-   #TODO do we want to multiply dp?
-   gconfig = grad_config(M,cfg)
-  
-   return (NoTangent(), gradMatrix, NoTangent(), gconfig)
+   g_cfg = grad_config(M,cfg)
+   for i = 1:size(g_cfg,1) #loops over number of configs
+      for j = 1:length(dp) #loops over properties
+         g_cfg[i,j] *= dp[j] 
+      end
+   end
+
+   return (NoTangent(), g_p, NoTangent(), g_cfg)
 end
 
 function ChainRules.rrule(::typeof(_eval_linear_ACE), Wt, M, cfg)
@@ -85,11 +90,13 @@ function ChainRules.rrule(::typeof(_eval_linear_ACE), Wt, M, cfg)
    return E, dp -> adj(dp, Wt, M, cfg)
 end
 
-#it actually returns all the gradient combinations. So der of parameters twice, of model
-#twice of model and parameters, etc. However, we can just pass NoTangent() when we don't need them
+
+
+#currently not working
 function ChainRules.rrule(::typeof(adj), dp, W, M, cfg)
    function secondAdj(dq)   
       #TODO wait for AR branch to merge into main of ACE, then call adjoint
+
       #temp_grad = ACE.adjoint_EVAL_D(M, cfg, dq[4])
       temp_grad = rand(SVector{length(M.c[1]),Float64}, length(M.c))
 

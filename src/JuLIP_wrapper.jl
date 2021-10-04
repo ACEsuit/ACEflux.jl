@@ -1,65 +1,53 @@
 using JuLIP
 
+"""
+A wrapper around JuLIP. It basically defines a flux potential which is a model
+Flux.jl recognizes using and ACE layer. It is not intended to be differentiated.
+Once you have a trained Flux ACE multi property potential you can use this functions
+to work directly with the ASE.jl machinery. 
+For training look at calculator.jl
+"""
+
 struct FluxPotential{TM, TC} <: SitePotential
-   model::TM
-   cutoff::TC
+   model::TM # a function taking atoms and returning a site energy
+   cutoff::TC #in Angstroms
 end
 
-(y::FluxPotential)(x) = y.model(x)
+(y::FluxPotential)(x) = y.model(x) 
 
 NeighbourLists.cutoff(V::FluxPotential) = V.cutoff
 
 
-stateifier(R) = ACEConfig([State(rr = R[j]) for j in 1:length(R)])
-
-function ChainRules.rrule(::typeof(stateifier), R)
-   return stateifier(R), dp -> dp
-end
-
-function JuLIP.evaluate!(tmp, V::FluxPotential, tR, Z, z0)
-   R = stateifier(tR)#TODO how to get this derivated or out of eval
+function JuLIP.evaluate!(tmp, V::FluxPotential, R, Z, z0)
+   R = ACEConfig([State(rr = R[j]) for j in 1:length(R)])
    tmp = V(R)
-   return tmp
-end
-
-function JuLIP.evaluate_d!(dEs, tmp, V::FluxPotential, R, Z, z0)
-   R=ACEConfig([State(rr = R[j]) for j in 1:length(R)])
-   dEs = Zygote.gradient( x -> V(x), R )[1]
-   # @show length(dEs)
-   # @show length(tmp.dV)
-   #TODO Fix the lengths and cutoff
-   for i in 1:length(tmp.dV)
-      tmp.dV[i] = dEs[i].rr
-   end
    return tmp
 end
 
 JuLIP.energy(V::FluxPotential, at::AbstractAtoms) =
    JuLIP.energy!(JuLIP.Potentials.alloc_temp(V, at), V, at)
 
-function presets(calc, at)
-   TFL = JuLIP.fltype_intersect(calc, at)
-   E = zero(TFL)
-   nlist = neighbourlist(at, cutoff(calc))
-   return(E, nlist)
-end
-
-function ChainRules.rrule(::typeof(presets), calc, at)
-   return presets(calc, at), dp -> dp
-end
-
-function ChainRules.rrule(::typeof(JuLIP.Potentials.neigsz!), tmp, nlist, at, i)
-   return JuLIP.Potentials.neigsz!(tmp, nlist, at, i), dp -> dp
-end
-
 function JuLIP.energy!(tmp, calc::FluxPotential, at::Atoms;
    domain=1:length(at))
-   E, nlist = presets(calc, at)
+   E = zero(JuLIP.fltype_intersect(calc, at))
+   nlist = neighbourlist(at, cutoff(calc))
    for i in domain
       j, R, Z = JuLIP.Potentials.neigsz!(tmp, nlist, at, i)
       E += JuLIP.evaluate!(tmp, calc, R, Z, at.Z[i])
    end
    return E
+end
+
+
+
+#still not working
+function JuLIP.evaluate_d!(dEs, tmp, V::FluxPotential, R, Z, z0)
+   R=ACEConfig([State(rr = R[j]) for j in 1:length(R)])
+   dEs = Zygote.gradient( x -> V(x), R )[1]
+   for i in 1:length(tmp.dV)
+      tmp.dV[i] = dEs[i].rr
+   end
+   return tmp
 end
 
 JuLIP.forces(V::FluxPotential, at::AbstractAtoms; kwargs...) =
@@ -73,7 +61,6 @@ function JuLIP.forces!(frc, tmp, calc::FluxPotential, at::Atoms;
    nlist = neighbourlist(at, cutoff(calc))
    for i in domain
       j, R, Z = JuLIP.Potentials.neigsz!(tmp, nlist, at, i)
-      @show j
       if length(j) > 0
          JuLIP.evaluate_d!(tmp.dV, tmp, calc, R, Z, at.Z[i])
          for a = 1:length(j)
@@ -85,3 +72,18 @@ function JuLIP.forces!(frc, tmp, calc::FluxPotential, at::Atoms;
    return frc
 end
 
+
+
+#only for testing and developlemnt
+
+#neighboor list finder with EMT()
+function neighbourfinder(at)
+   Rs = []
+   nlist = neighbourlist(at, cutoff(EMT()))
+   for i = 1:length(at)
+      Js, tmpRs, Zs = JuLIP.Potentials.neigsz(nlist, at, i); z0 = at.Z[i]
+      tmpRs=ACEConfig([State(rr = tmpRs[j]) for j in 1:length(tmpRs)])
+      append!(Rs,[tmpRs])
+   end 
+   return Rs
+end
