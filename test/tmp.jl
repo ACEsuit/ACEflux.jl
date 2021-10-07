@@ -1,136 +1,136 @@
-using Zygote
-using ChainRules
+using Flux, ForwardDiff, Zygote, StaticArrays
+import ChainRulesCore, ChainRules
 import ChainRulesCore: rrule, NoTangent
+using Flux: @functor
+using JuLIP
 
-#sample function
-function f(x,y)
-   return sin.(x) .* exp.(-7 * y)
+using ACE
+using ACE: O3, val, State, SymmetricBasis, evaluate, LinearACEModel, set_params!, grad_params, grad_config, grad_params_config
+
+#neighboor list finder, It's here so we can indicate that it should not be differentiated
+function neighbourfinder(at)
+   Rs = []
+   nlist = neighbourlist(at, cutoff(EMT()))
+   for i = 1:length(at)
+      Js, tmpRs, Zs = JuLIP.Potentials.neigsz(nlist, at, i); z0 = at.Z[i]
+      tmpRs=ACEConfig([State(rr = tmpRs[j]) for j in 1:length(tmpRs)])
+      append!(Rs,[tmpRs])
+   end 
+   return Rs
 end
 
-#the derivative of the function, outside of chainrule so we can
-#define an rrule for it
-function adj(dp, x, y)
-   fx = cos.(x) .* exp.(-7 .* y) .* dp
-   fy = -sin.(x) .* 7 .* exp.(-7 .* y) .* dp
-   return(NoTangent(), fx, fy)
-end
-
-function ChainRules.rrule(::typeof(f), x, y)
-   return f(x,y), dp -> adj(dp, x, y)
-end
-
-#second derivatice, we only care about df/dydx
-#Here is where the problem is, we can multiply by dq which includes
-#information of the outermost function, but we can't get the hessian of 
-#NL (defined below). dp is already evaluated for the first derivative.
-function ChainRules.rrule(::typeof(adj), dp, x, y)
-   function secondAdj(dq)
-      fyx = -cos.(x) .* 7 .* exp.(-7 .* y) .* dq[3]
-      return (NoTangent(), NoTangent(), fyx, NoTangent())
+#Random copper fcc atoms and EMT() energies
+function genData(Ntrain)
+   atoms = []
+   tmpEnergy = []
+   tmpForces = []
+   for i in 1:Ntrain
+      at = bulk(:Cu, cubic=true) * 3
+      rattle!(at,0.6) 
+      #push!(atoms,at)
+      push!(atoms, neighbourfinder(at)[1])
+      push!(tmpEnergy, energy(EMT(),at))
+      push!(tmpForces, forces(EMT(),at))
    end
-   return (adj(dp, x, y), secondAdj)
+   prop = [ (E = E, F = F) for (E, F) in zip(tmpEnergy, tmpForces) ]
+   return(atoms,prop)
 end
 
-#random parameters
-x = rand(10)
-y = rand(10)
-
-#using the functions
-@info("sum(f)")
-display(sum(abs2, f(x,y)))
-@info("df/dx")
-display(Zygote.gradient(z -> sum(abs2, f(z,y)), x)[1])
-@info("df/dy")
-display(Zygote.gradient(z -> sum(abs2, f(x,z)), y)[1])
-@info("df/dydx")
-df_dy = v -> sum(Zygote.gradient(z -> sum(abs2, f(v,z)), y)[1]) #extra sum to get gradient not jacobian
-display(Zygote.gradient(df_dy, x))
-
-
-#testing
-using ACE, ACEbase, Test, ACE.Testing
-
-NL(z) = [ 0.77^n * (1 + z[n]^2)^(1/n) for n = 1:length(z) ]
-
-@info("df/dx test")
-F = θ -> sum(abs2, NL(f(θ,y)))
-dF = θ -> Zygote.gradient(F, θ)[1]
-ACEbase.Testing.fdtest(F, dF, x; verbose=true)
-
-@info("df/dy test")
-F = θ -> sum(abs2, NL(f(x,θ)))
-dF = θ -> Zygote.gradient(F, θ)[1]
-ACEbase.Testing.fdtest(F, dF, y; verbose=true)
-
-@info("df/dydx test")
-df_dy = θ -> sum(Zygote.gradient(z -> sum(abs2, f(θ,z)), y)[1])
-dF = θ -> Zygote.gradient(df_dy, θ)[1]
-ACEbase.Testing.fdtest(df_dy, dF, x; verbose=true)
-
-
-
-using Zygote
-using ChainRules
-import ChainRulesCore: rrule, NoTangent
-using ACEbase.Testing: fdtest
-
-## sample function
-const N = 10
-v(y) = [ exp(-n * y[1] - y[2]) for n = 1:N ]
-Dv(y) = - [ (1:N) .* v(y) v(y) ]
-f(x,y) = sin.(x) .* v(y)
-f1(x,y) = sin.(x) .* v(y)
-
-# the derivative of the function, outside of chainrule so we can define an rrule for it
-function adj(dp, x, y)
-   fx = cos.(x) .* v(y) .* dp
-   fy = (Dv(y)') * (sin.(x) .* dp)
-   return(NoTangent(), fx, fy)
-end
-
-function ChainRules.rrule(::typeof(f), x, y)
-   return f(x,y), dp -> adj(dp, x, y)
-end
-
-## compose some functions and AD
-g(f) = sum(abs2, f)
-g1(f) = sum(abs2, f)
-h = g ∘ f
-h1 = g1 ∘ f1
-
-x = rand(N)
-y = rand(2)
-
-all( Zygote.gradient(h, x, y) .≈ Zygote.gradient(h1, x, y) )
-
-##
-# now define a new function that evaluates D_x h only.
-Dx_h = (x, y) -> (Zygote.gradient(x_ -> h(x_, y), x))[1]
-# and compute it again with g (a nomincal outer nonlienarlty -> the loss)
-k = g ∘ Dx_h
-# and now differentiate k via Zyote.
-Dy_k = (x, y) -> Zygote.gradient(y_ -> k(x, y_), y)[1]
-
-##
-# .... This fails unless we provide the rrule
-function ChainRules.rrule(::typeof(adj), dp, x, y)
-   #  think of adj = (a1, a2, a3) then
-   #  we want D (dq1 * a1 + dq2 *   a2 + dq3 * a3) / D (dp, x, y)
-   # but a1 is a NoTangent(), a2 = fx, a3 = fy from above. so a3 is not needed and this is
-   # reflexted in dq3 = NoTangent()
-   # finally a2 = cos.(x) .* v(y) .* dp, and secondAdj just needs to compute the
-   # derivatives of   <dq2, a2> w.r.t.all three parameters (dp, x, y)
-   #     (note adj has 3 input parameters!!!)
-   function secondAdj(dq)
-      Dqa2_Ddp = dq[2] .* cos.(x) .* v(y)
-      Dqa2_Dx = NoTangent()   # we ignore this one, but technically it has a value
-      Dqa2_Dy = Dv(y)' * (dq[2] .* dp .* cos.(x))
-      return NoTangent(), Dqa2_Ddp, Dqa2_Dx, Dqa2_Dy
+#functions for converting SVectors and matrices
+function svector2matrix(sv)
+   M = zeros(length(sv[1]), length(sv))
+   for i in 1:length(sv)
+      M[:,i] = sv[i]
    end
-   return adj(dp, x, y), secondAdj
+   return M
 end
 
-Dy_k(x, y)
-##
+function matrix2svector(M)
+   sv = [SVector{size(M)[1]}(M[:,i]) for i in 1:size(M)[2]]
+   return sv
+end
 
-fdtest( y_ -> k(x, y_), y_ -> Dy_k(x, y_), y )
+getprops(x) = getproperty.(x, :val)
+
+# # ------------------------------------------------------------------------
+# #    ACE linear layer
+# # ------------------------------------------------------------------------
+
+"""
+`mutable struct Linear_ACE{TW, TM}` : 
+A layer to calculate site energies for multiple properties.
+The forward pass will calculate site energies for Nproperties, the derivative
+w.r.t configurations or atoms will return the Forces. And the derivative of
+Forces w.r.t parameters is done through a second rrule. All other mixed derivatives
+are not computed, and dF_params is computed through adjoints. The adjoint implementation
+and all other derivatives live in ACE.jl, this is simply a wrapper. 
+"""
+
+mutable struct linear_ACE{TW, TM}
+   weight::TW
+   m::TM 
+end
+
+function linear_ACE(maxdeg, ord, Nprop)
+   #building the basis
+   Bsel = SimpleSparseBasis(ord, maxdeg)
+   B1p = ACE.Utils.RnYlm_1pbasis(; maxdeg=maxdeg)
+   φ = ACE.Invariant()
+   basis = SymmetricBasis(φ, B1p, O3(), Bsel)
+
+   #create a multiple property model
+   W = rand(Nprop, length(basis))
+   LM = LinearACEModel(basis, matrix2svector(W), evaluator = :standard) 
+   return linear_ACE(W, LM)
+end
+
+@functor linear_ACE #so that flux can find the parameters
+ 
+#forward pass
+(y::linear_ACE)(cfg) = _eval_linear_ACE(y.weight, y.m, cfg)
+
+
+#energy evaluation
+function _eval_linear_ACE(W, M, cfg)
+   set_params!(M, matrix2svector(W))
+   E = getproperty.(evaluate(M ,cfg), :val)
+   return E
+end
+
+function _adj(dp, W, M, cfg)
+   set_params!(M, matrix2svector(W))
+   _, dW = Zygote.pullback(M_ -> evaluate(M_ ,cfg), M)
+   _, dcgf = Zygote.pullback(X_ -> evaluate(M ,X_), cfg)
+   return(NoTangent(), svector2matrix(dW(dp)[1]), NoTangent(), dcgf(dp)[1])
+end
+
+function ChainRules.rrule(::typeof(_eval_linear_ACE), W, M, cfg)
+   E = _eval_linear_ACE(W, M, cfg)
+   return E, dp -> _adj(dp)
+end
+
+function ChainRules.rrule(::typeof(_adj), dp, W, M, cfg)
+   function _second_adj(dq)
+      Zygote.pullback(_adj(dp, W, M, cfg), M)
+
+model = Chain(linear_ACE(6, 4, 2), Dense(2, 3, σ), Dense(3, 1), sum)
+energ(x) = model(x)
+force(x) = Zygote.gradient( x -> energ(x), x )
+
+loss(x,y) = abs2(energ(x) - y.E) + sum(sum([force(x)[1][i].rr - y.F[i] for i in 1:5]))
+
+# optimize
+opt = Descent()
+Xtrain, Ytrain = genData(2)
+data = zip(Xtrain, Ytrain)
+total_loss = () -> sum(loss(x, y) for (x, y) in data)
+@show total_loss()
+p = params(model)
+
+_, dW = Zygote.pullback(M_ -> evaluate(M_ ,cfg), M)
+Zygote.gradient(()->dW([1,2]), )
+
+Zygote.gradient(()->loss(Xtrain[1], Ytrain[1]), p)
+
+Flux.train!(loss, p, data, opt)
+@show total_loss()

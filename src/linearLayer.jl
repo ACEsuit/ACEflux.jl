@@ -1,10 +1,10 @@
 using Flux, ForwardDiff, Zygote, StaticArrays
 import ChainRulesCore, ChainRules
-import ChainRulesCore: rrule, NoTangent
+import ChainRulesCore: rrule, NoTangent, ZeroTangent
 using Flux: @functor
 
 using ACE
-using ACE: State, NaiveTotalDegree, SymmetricBasis, evaluate, LinearACEModel, set_params!, grad_params, grad_config, grad_params_config
+using ACE: O3, State, SymmetricBasis, evaluate, LinearACEModel, set_params!, grad_params, grad_config, grad_params_config
 
 #functions for converting SVectors and matrices
 function svector2matrix(sv)
@@ -42,10 +42,11 @@ mutable struct Linear_ACE{TW, TM}
 end
 
 function Linear_ACE(maxdeg, ord, Nprop)
-   #building the basis
-   B1p = ACE.Utils.RnYlm_1pbasis(; maxdeg=maxdeg, D = NaiveTotalDegree())
-   pibasis = PIBasis(B1p, ord, maxdeg; property = ACE.Invariant())
-   basis = SymmetricBasis(pibasis, ACE.Invariant());   
+    #building the basis
+    Bsel = SimpleSparseBasis(ord, maxdeg)
+    B1p = ACE.Utils.RnYlm_1pbasis(; maxdeg=maxdeg)
+    φ = ACE.Invariant()
+    basis = SymmetricBasis(φ, B1p, O3(), Bsel)
 
    #create a multiple property model
    W = rand(Nprop, length(basis))
@@ -65,48 +66,36 @@ function _eval_linear_ACE(W, M, cfg)
    return E
 end
 
-#adj is outside chainrule so we can define a chainrule for it
-function adj(dp, W, M, cfg)
-
-   set_params!(M, matrix2svector(W)) 
-
-   g_p = getprops.(grad_params(M ,cfg))
-   for i = 1:length(g_p) 
-      g_p[i] = g_p[i] .* dp
-   end
-
-   g_cfg = grad_config(M,cfg)
-   for i = 1:size(g_cfg,1) #loops over number of configs
-      for j = 1:length(dp) #loops over properties
-         g_cfg[i,j] *= dp[j] 
-      end
-   end
-
-   return (NoTangent(), g_p, NoTangent(), g_cfg)
+function adj_evaluate(dp, W, M::ACE.LinearACEModel, cfg)
+   set_params!(M, matrix2svector(W)) #TODO is it necesary?
+   gp_ = ACE.grad_params(M, cfg)
+   gp = [ ACE.val.(a .* dp) for a in gp_ ]
+   g_cfg = ACE._rrule_evaluate(dp, M, cfg) # rrule for cfg only...
+   return NoTangent(), svector2matrix(gp), NoTangent(), g_cfg
 end
 
-function ChainRules.rrule(::typeof(_eval_linear_ACE), Wt, M, cfg)
-   E = _eval_linear_ACE(Wt, M, cfg)
-   return E, dp -> adj(dp, Wt, M, cfg)
+function ChainRules.rrule(::typeof(_eval_linear_ACE), W, M, cfg)
+   E = _eval_linear_ACE(W, M, cfg)
+   return E, dp -> adj_evaluate(dp, W, M, cfg)
 end
 
+function ChainRules.rrule(::typeof(adj_evaluate), dp, W, M, cfg)
+   function secondAdj(dq_)
+      @assert dq_[1] == dq_[2] == dq_[3] == ZeroTangent()
+      @assert dq_[4] isa AbstractVector{<: ACE.DState}
+      @assert length(dq_[4]) == length(cfg)
+      dq = dq_[4]  # Vector of DStates
+     
+      grad = ACE.adjoint_EVAL_D1(M, M.evaluator, cfg, dq)
 
+      # gradient w.r.t parameters: 
+      sdp = SVector(dp...)
+      grad_params = grad .* Ref(sdp)
 
-#currently not working
-function ChainRules.rrule(::typeof(adj), dp, W, M, cfg)
-   function secondAdj(dq)   
-      #TODO wait for AR branch to merge into main of ACE, then call adjoint
-
-      #temp_grad = ACE.adjoint_EVAL_D(M, cfg, dq[4])
-      temp_grad = rand(SVector{length(M.c[1]),Float64}, length(M.c))
-
-      #we convert our SVector into a matrix
-      grad_force_params = zeros(length(temp_grad[1]), length(temp_grad))
-      for i in 1:length(temp_grad)
-         grad_force_params[:,i] = temp_grad[i]
-      end
-
-      return(NoTangent(), NoTangent(), grad_force_params, NoTangent(), NoTangent())
+      # gradient w.r.t. dp    # TODO: remove the |> Vector? 
+      grad_dp = sum( M.c[k] * grad[k] for k = 1:length(grad) )  |> Vector 
+      @show size(svector2matrix(grad_params))
+      return(NoTangent(), grad_dp, svector2matrix(grad_params), NoTangent(), svector2matrix(grad_params))
    end
-   return(adj(dp, W, M, cfg), secondAdj)
+   return(adj_evaluate(dp, W, M, cfg), secondAdj)
 end
