@@ -94,8 +94,8 @@ function ChainRules.rrule(::typeof(adj_evaluate), dp, W, M, cfg)
 
       # gradient w.r.t. dp    # TODO: remove the |> Vector? 
       grad_dp = sum( M.c[k] * grad[k] for k = 1:length(grad) )  |> Vector 
-      @show size(svector2matrix(grad_params))
-      return(NoTangent(), grad_dp, svector2matrix(grad_params), NoTangent(), svector2matrix(grad_params))
+
+      return(NoTangent(), grad_dp, svector2matrix(grad_params), NoTangent(), NoTangent())
    end
    return(adj_evaluate(dp, W, M, cfg), secondAdj)
 end

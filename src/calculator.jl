@@ -66,38 +66,29 @@ function ChainRules.rrule(::typeof(FluxForces), calc::FluxPotential, at::Atoms)
    end
 
    function adj(dp_t)
-      @show "here"
-      #dp = copy(dp_)
       dt = [ACE.DState(rr=dp_t[i]) for i in 1:length(dp_t)]
-
+      @show dt
+      #create a "Gradient" object to store everything
       dptmp = [ACE.DState(rr=zeros(3)) for _ in 1:length(domain_R[1])]
-      _ , pback = Zygote.pullback(c_ -> Zygote.gradient(c_, domain_R[1])[1], calc)
+      _ , pback = Zygote.pullback(()->Zygote.gradient(calc, domain_R[1])[1], params(calc.model))
       dfrc = pback(dptmp)
-
-      @show dfrc
+      @show dfrc[params(calc.model)[1]]
       for (i,r) in enumerate(domain_R)
+         @show i
          dp = [ACE.DState(rr=zeros(3)) for _ in 1:length(r)]
          for a = 1:length(J[i])
-            dp[J[i][a]] -= dt[a]
-            dp[i] += dt[a]
-            _ , pback = Zygote.pullback(c_ -> Zygote.gradient(c_, r)[1], calc)
-            _dfrc = pback(dp)
-            for dprm in params(calc.model)
-               @show "1"
-               dfrc[dprm] += _dfrc[dprm]
+            dp[a] -= dt[J[i][a]]
+            #dp[a] += dt[i]
+         end
+         _ , pback = Zygote.pullback(()->Zygote.gradient(calc, r)[1], params(calc.model))
+         _dfrc = pback(dp)
+         for dprm in params(calc.model)
+            if(_dfrc[dprm] != nothing)
+               dfrc[dprm] += _dfrc[dprm] 
             end
          end   
       end
-      # @show "real"
-      # # for (i,r) in enumerate(domain_R)
-      # #    #dfrc += ACE.adjoint_EVAL_D1(calc.model, calc.model.evaluator, r, dp)
-         
-      # #    @show dp
-      # #    @show pback(dp)
-      # #    dfrc += pback(dp)
-      # # end
-      # @show dfrc
-      return NoTangent(), dfrc, NoTangent()
+      return dfrc, dfrc, dfrc
    end
 
    frc = zeros(SVector{3, Float64}, length(at))

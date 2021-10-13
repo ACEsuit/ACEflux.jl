@@ -5,7 +5,7 @@ using Printf
 using Test, ACE.Testing
 using ACEbase
 
-model = Chain(Linear_ACE(6, 4, 2), Dense(2, 3, σ), Dense(3, 1), sum)
+model = Chain(Linear_ACE(3, 2, 2), Dense(2, 3, σ), Dense(3, 1), sum)
 
 FluxModel = FluxPotential(model, 5.0) #model, cutoff
 
@@ -48,38 +48,46 @@ s = size(FluxModel.model[1].weight)
 
 r = neighbourfinder(at)[1]
 
-# frcs(model, r) = sum(sum(Zygote.gradient(model, r)[1]).rr)
+#frcs(model, r) = sum(sum(Zygote.gradient(model, r)[1]).rr)
 
 # a,b = Zygote.pullback(()->frcs(model,r), params(model))
 
-# a,b = Zygote.gradient(()->FluxEnergy(FluxModel,at), params(model))
+#a,b = Zygote.gradient(()->FluxEnergy(FluxModel,at), params(model))
 
+
+# dptmp = [ACE.DState(rr=zeros(3)) for _ in 1:length(r)]
+
+# a,b = Zygote.pullback(()->Zygote.gradient(FluxModel, r)[1], params(model))
+#g = Zygote.gradient(c_ -> Zygote.gradient(c_, r)[1], FluxModel)
+
+# @show b(dptmp)
 
 ffrcs(FluxModel, at) = 0.77 .* sum(0.7 .* sum(0.77 .* FluxForces(FluxModel, at)))^2
 
-Zygote.gradient(()->ffrcs(FluxModel,at), params(model))
+g = Zygote.gradient(()->ffrcs(FluxModel,at), params(model))
+
+g = Zygote.gradient(x -> ffrcs(x, at), FluxModel)
 
 
 
+# @info "dloss, d{E+sum(F)}/dP"
 
-@info "dloss, d{E+sum(F)}/dP"
+# loss(FluxModel, at) = FluxEnergy(FluxModel, at) + sum(sum(FluxForces(FluxModel, at)))
 
-loss(FluxModel, at) = FluxEnergy(FluxModel, at) + sum(sum(FluxForces(FluxModel, at)))
+# function F2(c)
+#    FluxModel.model[1].weight = reshape(c, s[1], s[2])
+#    return loss(FluxModel, at)
+# end
 
-function F2(c)
-   FluxModel.model[1].weight = reshape(c, s[1], s[2])
-   return loss(FluxModel, at)
-end
+# function dF2(c)
+#    FluxModel.model[1].weight = reshape(c, s[1], s[2])
+#    p = params(model)
+#    dE = Zygote.gradient(()->loss(FluxModel, at), p)
+#    return(svector2matrix(dE[p[1]]))
+# end
 
-function dF2(c)
-   FluxModel.model[1].weight = reshape(c, s[1], s[2])
-   p = params(model)
-   dE = Zygote.gradient(()->loss(FluxModel, at), p)
-   return(svector2matrix(dE[p[1]]))
-end
-
-for _ in 1:5
-   c = rand(s[1]*s[2])
-   println(@test ACEbase.Testing.fdtest(F2, dF2, c, verbose=true))
-end
-println()
+# for _ in 1:5
+#    c = rand(s[1]*s[2])
+#    println(@test ACEbase.Testing.fdtest(F2, dF2, c, verbose=true))
+# end
+# println()
