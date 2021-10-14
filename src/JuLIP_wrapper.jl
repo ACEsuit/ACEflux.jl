@@ -8,7 +8,7 @@ to work directly with the ASE.jl machinery.
 For training look at calculator.jl
 """
 
-struct FluxPotential{TM, TC} <: SitePotential
+mutable struct FluxPotential{TM, TC} <: SitePotential
    model::TM # a function taking atoms and returning a site energy
    cutoff::TC #in Angstroms
 end

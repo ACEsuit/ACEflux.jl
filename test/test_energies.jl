@@ -27,7 +27,7 @@ s = size(FluxModel.model[1].weight)
 #    FluxModel.model[1].weight = reshape(c, s[1], s[2])
 #    p = params(model)
 #    dE = Zygote.gradient(()->FluxEnergy(FluxModel, at), p)
-#    return(svector2matrix(dE[p[1]]))
+#    return(dE[p[1]])
 # end
 
 # for _ in 1:5
@@ -62,17 +62,40 @@ r = neighbourfinder(at)[1]
 
 # @show b(dptmp)
 
-ffrcs(FluxModel, at) = 0.77 .* sum(0.7 .* sum(0.77 .* FluxForces(FluxModel, at)))^2
+#ffrcs(FluxModel, at) = 0.77 .* sum(0.7 .* sum(0.77 .* FluxForces(FluxModel, at))^2)
+sqr(x) = x.^2
+ffrcs(FluxModel, at) = sum(sum(sqr.(FluxForces(FluxModel, at))))
 
-g = Zygote.gradient(()->ffrcs(FluxModel,at), params(model))
+# g = Zygote.gradient(()->ffrcs(at), params(model))
+#g = Zygote.gradient(x -> ffrcs(x, at), FluxModel)
 
-g = Zygote.gradient(x -> ffrcs(x, at), FluxModel)
 
+
+
+@info "dForces, d{sum(F)}/dP"
+
+function F(c)
+   FluxModel.model[1].weight = reshape(c, s[1], s[2])
+   return ffrcs(FluxModel, at)
+end
+
+function dF(c)
+   FluxModel.model[1].weight = reshape(c, s[1], s[2])
+   p = params(model)
+   dE = Zygote.gradient(x -> ffrcs(x, at), FluxModel)[1]
+   return(dE[p[1]])
+end
+
+for _ in 1:5
+   c = rand(s[1]*s[2])
+   println(@test ACEbase.Testing.fdtest(F, dF, c, verbose=true))
+end
+println()
 
 
 # @info "dloss, d{E+sum(F)}/dP"
 
-# loss(FluxModel, at) = FluxEnergy(FluxModel, at) + sum(sum(FluxForces(FluxModel, at)))
+# loss(FluxModel, at) = FluxEnergy(FluxModel, at) + sum(sum(sqr.(FluxForces(FluxModel, at))))
 
 # function F2(c)
 #    FluxModel.model[1].weight = reshape(c, s[1], s[2])
@@ -82,8 +105,9 @@ g = Zygote.gradient(x -> ffrcs(x, at), FluxModel)
 # function dF2(c)
 #    FluxModel.model[1].weight = reshape(c, s[1], s[2])
 #    p = params(model)
-#    dE = Zygote.gradient(()->loss(FluxModel, at), p)
-#    return(svector2matrix(dE[p[1]]))
+#    #dE = Zygote.gradient(()->loss(FluxModel, at), p)
+#    #dE = Zygote.gradient(x -> ffrcs(x, at), FluxModel)[1]
+#    return(dE[p[1]])
 # end
 
 # for _ in 1:5
@@ -91,3 +115,4 @@ g = Zygote.gradient(x -> ffrcs(x, at), FluxModel)
 #    println(@test ACEbase.Testing.fdtest(F2, dF2, c, verbose=true))
 # end
 # println()
+
