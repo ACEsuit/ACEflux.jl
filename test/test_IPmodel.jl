@@ -25,31 +25,5 @@ FluxModel = FluxPotential(model, 5.19) #model, cutoff
 
 @show 3
 
-dB(FluxModel, Ti_data) = sum(LsqDBflux("", FluxModel, Ti_data).Ψ) #-dB.Y
-p = params(model)
-Zygote.gradient(()->dB(FluxModel, Ti_data), p)
+dB = LsqDBflux("", FluxModel, Ti_data)
 
-
-
-loss = sum(dB.Ψ - dB.Y)/length(dB.Ψ)
-
-loss(x, y) = Flux.Losses.mse(model(x), y)
-
-evalcb_verbose() = @show(mean(loss.(test_input, test_output)))
-evalcb_quiet() = return nothing
-evalcb = verbose ? evalcb_verbose : evalcb_quiet
-evalcb()
-
-@epochs num_epochs Flux.train!(
-   loss,
-   params(model),
-   train_data,
-   opt,
-   cb = Flux.throttle(evalcb, 5),
-  )
-
-# params(dB)
-
-# Zygote.gradient(()-loss())
-
-# #Ti_data[indx].D["E"][1]

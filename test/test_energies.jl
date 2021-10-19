@@ -9,24 +9,90 @@ model = Chain(Linear_ACE(3, 2, 2), Dense(2, 3, σ), Dense(3, 1), sum)
 
 FluxModel = FluxPotential(model, 5.0) #model, cutoff
 
-# we only check the derivatives of the parameters in the linear ace layer
-# we do finite difference on the whole function, but only compare ACE parameters
-@info "dEnergy, dE/dP"
+cu = bulk(:Cu, cubic=true)
+ti = bulk(:Ti, cubic=true)
 
-at = bulk(:Cu, cubic=true) * 3
-rattle!(at,0.6) 
+g1 = Zygote.gradient(()->FluxEnergy(FluxModel, cu), params(model))
+@show g1[params(model)[1]]
+g2 = Zygote.gradient(()->FluxEnergy(FluxModel, ti), params(model))
+@show g2[params(model)[1]]
 
-s = size(FluxModel.model[1].weight)
+
+
+# # we only check the derivatives of the parameters in the linear ace layer
+# # we do finite difference on the whole function, but only compare ACE parameters
+# @info "dEnergy, dE/dP"
+
+# at = bulk(:Cu, cubic=true) * 3
+# rattle!(at,0.6) 
+
+# s = size(FluxModel.model[1].weight)
+
+# # function F(c)
+# #    FluxModel.model[1].weight = reshape(c, s[1], s[2])
+# #    return FluxEnergy(FluxModel, at)
+# # end
+
+# # function dF(c)
+# #    FluxModel.model[1].weight = reshape(c, s[1], s[2])
+# #    p = params(model)
+# #    dE = Zygote.gradient(()->FluxEnergy(FluxModel, at), p)
+# #    return(dE[p[1]])
+# # end
+
+# # for _ in 1:5
+# #    c = rand(s[1]*s[2])
+# #    println(@test ACEbase.Testing.fdtest(F, dF, c, verbose=true))
+# # end
+# # println()
+
+
+# # @info("Check the AD Forces for an FS-like model")
+# # Us = randn(SVector{3, Float64}, length(cfg))
+# # dF = t -> sum( dot(u, g.rr) for (u,g) in zip(Us, Zygote.gradient(F, cfg)[1]) )
+# # dF(0.0)
+
+# # ACEbase.Testing.fdtest(F, dF, 0.0, verbose=true)
+
+
+
+# r = neighbourfinder(at)[1]
+
+# #frcs(model, r) = sum(sum(Zygote.gradient(model, r)[1]).rr)
+
+# # a,b = Zygote.pullback(()->frcs(model,r), params(model))
+
+# #a,b = Zygote.gradient(()->FluxEnergy(FluxModel,at), params(model))
+
+
+# # dptmp = [ACE.DState(rr=zeros(3)) for _ in 1:length(r)]
+
+# # a,b = Zygote.pullback(()->Zygote.gradient(FluxModel, r)[1], params(model))
+# #g = Zygote.gradient(c_ -> Zygote.gradient(c_, r)[1], FluxModel)
+
+# # @show b(dptmp)
+
+# #ffrcs(FluxModel, at) = 0.77 .* sum(0.7 .* sum(0.77 .* FluxForces(FluxModel, at))^2)
+# sqr(x) = x.^2
+# ffrcs(FluxModel, at) = sum(sum(sqr.(FluxForces(FluxModel, at))))
+
+# # g = Zygote.gradient(()->ffrcs(at), params(model))
+# #g = Zygote.gradient(x -> ffrcs(x, at), FluxModel)
+
+
+
+
+# @info "dForces, d{sum(F)}/dP"
 
 # function F(c)
 #    FluxModel.model[1].weight = reshape(c, s[1], s[2])
-#    return FluxEnergy(FluxModel, at)
+#    return ffrcs(FluxModel, at)
 # end
 
 # function dF(c)
 #    FluxModel.model[1].weight = reshape(c, s[1], s[2])
 #    p = params(model)
-#    dE = Zygote.gradient(()->FluxEnergy(FluxModel, at), p)
+#    dE = Zygote.gradient(x -> ffrcs(x, at), FluxModel)[1]
 #    return(dE[p[1]])
 # end
 
@@ -37,82 +103,26 @@ s = size(FluxModel.model[1].weight)
 # println()
 
 
-# @info("Check the AD Forces for an FS-like model")
-# Us = randn(SVector{3, Float64}, length(cfg))
-# dF = t -> sum( dot(u, g.rr) for (u,g) in zip(Us, Zygote.gradient(F, cfg)[1]) )
-# dF(0.0)
+# # @info "dloss, d{E+sum(F)}/dP"
 
-# ACEbase.Testing.fdtest(F, dF, 0.0, verbose=true)
+# # loss(FluxModel, at) = FluxEnergy(FluxModel, at) + sum(sum(sqr.(FluxForces(FluxModel, at))))
 
+# # function F2(c)
+# #    FluxModel.model[1].weight = reshape(c, s[1], s[2])
+# #    return loss(FluxModel, at)
+# # end
 
+# # function dF2(c)
+# #    FluxModel.model[1].weight = reshape(c, s[1], s[2])
+# #    p = params(model)
+# #    #dE = Zygote.gradient(()->loss(FluxModel, at), p)
+# #    #dE = Zygote.gradient(x -> ffrcs(x, at), FluxModel)[1]
+# #    return(dE[p[1]])
+# # end
 
-r = neighbourfinder(at)[1]
-
-#frcs(model, r) = sum(sum(Zygote.gradient(model, r)[1]).rr)
-
-# a,b = Zygote.pullback(()->frcs(model,r), params(model))
-
-#a,b = Zygote.gradient(()->FluxEnergy(FluxModel,at), params(model))
-
-
-# dptmp = [ACE.DState(rr=zeros(3)) for _ in 1:length(r)]
-
-# a,b = Zygote.pullback(()->Zygote.gradient(FluxModel, r)[1], params(model))
-#g = Zygote.gradient(c_ -> Zygote.gradient(c_, r)[1], FluxModel)
-
-# @show b(dptmp)
-
-#ffrcs(FluxModel, at) = 0.77 .* sum(0.7 .* sum(0.77 .* FluxForces(FluxModel, at))^2)
-sqr(x) = x.^2
-ffrcs(FluxModel, at) = sum(sum(sqr.(FluxForces(FluxModel, at))))
-
-# g = Zygote.gradient(()->ffrcs(at), params(model))
-#g = Zygote.gradient(x -> ffrcs(x, at), FluxModel)
-
-
-
-
-@info "dForces, d{sum(F)}/dP"
-
-function F(c)
-   FluxModel.model[1].weight = reshape(c, s[1], s[2])
-   return ffrcs(FluxModel, at)
-end
-
-function dF(c)
-   FluxModel.model[1].weight = reshape(c, s[1], s[2])
-   p = params(model)
-   dE = Zygote.gradient(x -> ffrcs(x, at), FluxModel)[1]
-   return(dE[p[1]])
-end
-
-for _ in 1:5
-   c = rand(s[1]*s[2])
-   println(@test ACEbase.Testing.fdtest(F, dF, c, verbose=true))
-end
-println()
-
-
-# @info "dloss, d{E+sum(F)}/dP"
-
-# loss(FluxModel, at) = FluxEnergy(FluxModel, at) + sum(sum(sqr.(FluxForces(FluxModel, at))))
-
-# function F2(c)
-#    FluxModel.model[1].weight = reshape(c, s[1], s[2])
-#    return loss(FluxModel, at)
-# end
-
-# function dF2(c)
-#    FluxModel.model[1].weight = reshape(c, s[1], s[2])
-#    p = params(model)
-#    #dE = Zygote.gradient(()->loss(FluxModel, at), p)
-#    #dE = Zygote.gradient(x -> ffrcs(x, at), FluxModel)[1]
-#    return(dE[p[1]])
-# end
-
-# for _ in 1:5
-#    c = rand(s[1]*s[2])
-#    println(@test ACEbase.Testing.fdtest(F2, dF2, c, verbose=true))
-# end
-# println()
+# # for _ in 1:5
+# #    c = rand(s[1]*s[2])
+# #    println(@test ACEbase.Testing.fdtest(F2, dF2, c, verbose=true))
+# # end
+# # println()
 
