@@ -18,7 +18,7 @@ function Flux_neighbours_R(calc::FluxPotential, at::Atoms)
 end
 
 function ChainRules.rrule(::typeof(Flux_neighbours_R), calc::FluxPotential, at::Atoms)
-   return Flux_neighbours_R(calc, at), dp -> dp
+   return Flux_neighbours_R(calc, at), dp -> (NoTangent(), dp, NoTangent())
 end
 
 function Flux_neighbours_J(calc::FluxPotential, at::Atoms)
@@ -34,7 +34,7 @@ function Flux_neighbours_J(calc::FluxPotential, at::Atoms)
 end
 
 function ChainRules.rrule(::typeof(Flux_neighbours_J), calc::FluxPotential, at::Atoms)
-   return Flux_neighbours_J(calc, at), dp -> dp
+   return Flux_neighbours_J(calc, at), dp -> (NoTangent(), dp, NoTangent())
 end
 
 
