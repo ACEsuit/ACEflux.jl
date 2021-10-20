@@ -82,11 +82,12 @@ end
 function ChainRules.rrule(::typeof(adj_evaluate), dp, W, M, cfg)
    function secondAdj(dq_)
       @assert dq_[1] == dq_[2] == dq_[3] == ZeroTangent()
-      @assert dq_[4] isa AbstractVector{<: ACE.DState}
+      @assert dq_[4] isa AbstractVector{<: SVector}
       @assert length(dq_[4]) == length(cfg)
-      dq = dq_[4]  # Vector of DStates
+      dq = dq_[4]  # Vector of SVector
+      dq_ace = [ ACE.DState(rr = dqi) for dqi in dq ]
      
-      grad = ACE.adjoint_EVAL_D1(M, M.evaluator, cfg, dq)
+      grad = ACE.adjoint_EVAL_D1(M, M.evaluator, cfg, dq_ace)
 
       # gradient w.r.t parameters: 
       sdp = SVector(dp...)

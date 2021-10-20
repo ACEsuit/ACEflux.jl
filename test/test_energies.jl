@@ -40,6 +40,29 @@ println()
 
 ##
 
+RRs = ACEgnns.Flux_neighbours_R(FluxModel, at)
+Ri = RRs[5]
+J = ACEgnns.Flux_neighbours_J(FluxModel, at)
+Ji = J[5]
+
+p = params(FluxModel.model)
+g = Flux.gradient(() -> FluxModel(Ri), p)
+
+length(Ri) == length(Ji)
+Ji
+
+##
+
+f = FluxForces(FluxModel, at)
+U = randn(eltype(f), length(f))
+
+L = () -> sum( dot(u, f) for (u, f) in zip(U, FluxForces(FluxModel, at)) )
+p = params(FluxModel.model)
+g = Flux.gradient( L, p )
+
+##
+
+
 # @info("Check the AD Forces for an FS-like model")
 # Us = randn(SVector{3, Float64}, length(cfg))
 # dF = t -> sum( dot(u, g.rr) for (u,g) in zip(Us, Zygote.gradient(F, cfg)[1]) )
