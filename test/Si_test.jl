@@ -8,15 +8,17 @@ model = Chain(Linear_ACE(3, 2, 2), Dense(2, 3, σ), Dense(3, 1), sum)
 FluxModel = FluxPotential(model, 5.19) #model, cutoff
 
 #simply pull out all the configurations
-Y = zeros(2475) #hardcoded for this example
+Y = [] #zeros(2475) #hardcoded for this example
 X = []
 for i in 1:2475
-   Y[i] = data[i].D["E"][1]
+   #Y[i] = data[i].D["E"][1]
+   push!(Y, [data[i].D["E"][1], data[i].D["F"]])
    push!(X, data[i].at)
 end
 train_data = zip(X, Y) 
 
-loss(x, y) = Flux.Losses.mse(FluxEnergy(FluxModel, x), y)
+sqr(x) = x.^2
+loss(at, EF) = Flux.Losses.mse(FluxEnergy(FluxModel, at), EF[1]) + sum(sum(sqr.(FluxForces(FluxModel, at) .- EF[2]))) #could maybe use MSE for forces as well
 
 verbose = true
 opt = ADAM(0.001)
