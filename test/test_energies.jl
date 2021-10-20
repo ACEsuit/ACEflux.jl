@@ -9,6 +9,8 @@ model = Chain(Linear_ACE(3, 2, 2), Dense(2, 3, σ), Dense(3, 1), sum)
 
 FluxModel = FluxPotential(model, 5.0) #model, cutoff
 
+##
+
 # # we only check the derivatives of the parameters in the linear ace layer
 # # we do finite difference on the whole function, but only compare ACE parameters
 @info "dEnergy, dE/dP"
@@ -36,6 +38,7 @@ for _ in 1:5
 end
 println()
 
+##
 
 # @info("Check the AD Forces for an FS-like model")
 # Us = randn(SVector{3, Float64}, length(cfg))

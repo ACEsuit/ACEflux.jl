@@ -1,6 +1,7 @@
 using ACEgnns, JuLIP, StaticArrays
 import ChainRulesCore, ChainRules
 import ChainRulesCore: rrule, NoTangent
+import ACE: PositionState
 
 #functions we don't want to differentiate
 #TODO change this to a nograd, or Zygote.ignore or something similar.
@@ -11,8 +12,10 @@ function Flux_neighbours_R(calc::FluxPotential, at::Atoms)
    domain_R = []
    for i in domain
       j, R, Z = JuLIP.Potentials.neigsz!(tmp, nlist, at, i)
-      R = ACEConfig([PositionsState(rr = R[j]) for j in 1:length(R)])
-      push!(domain_R, R)
+      TX = PositionState{Float64}
+      # cfg = ACEConfig(TX[ TX(rr = R[j]) for j in 1:length(R) ])
+      cfg = ACEConfig( TX[ TX(rr = rr) for rr in R ] )
+      push!(domain_R, cfg)
    end
    return domain_R
 end
@@ -45,6 +48,7 @@ function FluxEnergy(calc::FluxPotential, at::Atoms)
    domain_R = Flux_neighbours_R(calc, at)
    return sum([calc(r) for r in domain_R])
 end
+
 
 function FluxForces(calc::FluxPotential, at::Atoms)
    domain_R = Flux_neighbours_R(calc, at)
