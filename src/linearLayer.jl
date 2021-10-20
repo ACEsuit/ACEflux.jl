@@ -46,11 +46,11 @@ function Linear_ACE(maxdeg, ord, Nprop)
     Bsel = SimpleSparseBasis(ord, maxdeg)
     B1p = ACE.Utils.RnYlm_1pbasis(; maxdeg=maxdeg)
     φ = ACE.Invariant()
-    basis = SymmetricBasis(φ, B1p, O3(), Bsel)
+    bsis = SymmetricBasis(φ, B1p, O3(), Bsel)
 
    #create a multiple property model
-   W = rand(Nprop, length(basis))
-   LM = LinearACEModel(basis, matrix2svector(W), evaluator = :standard) 
+   W = rand(Nprop, length(bsis))
+   LM = LinearACEModel(bsis, matrix2svector(W), evaluator = :standard) 
    return Linear_ACE(W,LM)
 end
 

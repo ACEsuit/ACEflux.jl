@@ -11,7 +11,7 @@ function Flux_neighbours_R(calc::FluxPotential, at::Atoms)
    domain_R = []
    for i in domain
       j, R, Z = JuLIP.Potentials.neigsz!(tmp, nlist, at, i)
-      R = ACEConfig([State(rr = R[j]) for j in 1:length(R)])
+      R = ACEConfig([PositionsState(rr = R[j]) for j in 1:length(R)])
       push!(domain_R, R)
    end
    return domain_R
