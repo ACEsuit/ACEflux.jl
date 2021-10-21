@@ -1,8 +1,10 @@
 using IPFitting, ACE, ACEgnns, Flux, Zygote, Statistics
 using Flux: @epochs
 
-data = IPFitting.Data.read_xyz("G:/My Drive/documents/UBC/Julia Codes/silicon/Si.xyz", energy_key="dft_energy")
+#data = IPFitting.Data.read_xyz("G:/My Drive/documents/UBC/Julia Codes/silicon/Si.xyz", energy_key="dft_energy")
 #data = IPFitting.Data.read_xyz("/Users/ortner/Dropbox/PIBmat/Si/silicon_database_gp_iter6_sparse9k.xml.xyz", energy_key="dft_energy")
+data = IPFitting.Data.read_xyz("/zfs/users/aross88/aross88/silicon/Si.xyz", energy_key="dft_energy", force_key="dft_force")
+
 
 model = Chain(Linear_ACE(3, 2, 2), Dense(2, 3, σ), Dense(3, 1), sum)
 FluxModel = FluxPotential(model, 5.19) #model, cutoff
@@ -14,7 +16,7 @@ for i in 1:length(data)
    push!(Y, [ data[i].D["E"][1], ACEgnns.matrix2svector(reshape(data[i].D["F"], (3, Int(length(data[i].D["F"])/3)))) ])
    push!(X, data[i].at)
 end
-train_data = zip(X[380:400], Y[380:400]) 
+train_data = zip(X, Y) 
 
 sqr(x) = x.^2
 
@@ -37,4 +39,11 @@ num_epochs = 5
    opt,
    cb = Flux.throttle(evalcb, 5),
   )
+
+
+  #normalize the loss
+  #batching per configuration type
+  #threading
+  #two particle basis
+  #inner and outter cutoffs (also p and p0)
 
