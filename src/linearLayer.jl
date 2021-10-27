@@ -36,12 +36,13 @@ are not computed, and dF_params is computed through adjoints. The adjoint implem
 and all other derivatives live in ACE.jl, this is simply a wrapper. 
 """
 
-mutable struct Linear_ACE{TW, TM}
+mutable struct Linear_ACE{TW,TM,Tσ}
    weight::TW
    m::TM 
+   σ::Tσ
 end
 
-function Linear_ACE(maxdeg, ord, Nprop)
+function Linear_ACE(maxdeg::Int, ord::Int, Nprop; σ=x->x)
     #building the basis
     Bsel = SimpleSparseBasis(ord, maxdeg)
     B1p = ACE.Utils.RnYlm_1pbasis(; maxdeg=maxdeg)
@@ -51,13 +52,13 @@ function Linear_ACE(maxdeg, ord, Nprop)
    #create a multiple property model
    W = rand(Nprop, length(bsis))
    LM = LinearACEModel(bsis, matrix2svector(W), evaluator = :standard) 
-   return Linear_ACE(W,LM)
+   return Linear_ACE(W,LM,σ)
 end
 
 @functor Linear_ACE #so that flux can find the parameters
  
 #forward pass
-(y::Linear_ACE)(cfg) = _eval_linear_ACE(y.weight, y.m, cfg)
+(y::Linear_ACE)(cfg) = y.σ(_eval_linear_ACE(y.weight, y.m, cfg))
 
 #energy evaluation
 function _eval_linear_ACE(W, M, cfg)
