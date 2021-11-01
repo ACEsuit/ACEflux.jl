@@ -46,6 +46,12 @@ end
 ##
 #Energy and forces calculators
 
+# function FluxEnergy(calc::FluxPotential, at::Atoms)
+#    domain_R = Flux_neighbours_R(calc, at)
+#    return sum(tmap(calc, domain_R))
+# end
+
+
 function FluxEnergy(calc::FluxPotential, at::Atoms)
    domain_R = Flux_neighbours_R(calc, at)
    return sum([calc(r) for r in domain_R])

@@ -1,9 +1,8 @@
 module ACEgnns
 
-export LsqDBflux, Linear_ACE, FluxPotential, FluxEnergy, FluxForces, neighbourfinder, svector2matrix
-include("linearLayer.jl")
-include("JuLIP_wrapper.jl")
+export opt_Flux, GenLayer, Linear_ACE, FluxPotential, FluxEnergy, FluxForces, neighbourfinder, svector2matrix
+include("layers.jl")
 include("calculator.jl")
-include("IPfitting_functions.jl")
+include("training.jl")
 
 end

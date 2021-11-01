@@ -36,13 +36,12 @@ are not computed, and dF_params is computed through adjoints. The adjoint implem
 and all other derivatives live in ACE.jl, this is simply a wrapper. 
 """
 
-mutable struct Linear_ACE{TW,TM,Tσ}
+mutable struct Linear_ACE{TW,TM}
    weight::TW
    m::TM 
-   σ::Tσ
 end
 
-function Linear_ACE(maxdeg::Int, ord::Int, Nprop; σ=x->x)
+function Linear_ACE(maxdeg::Int, ord::Int, Nprop)
     #building the basis
     Bsel = SimpleSparseBasis(ord, maxdeg)
     B1p = ACE.Utils.RnYlm_1pbasis(; maxdeg=maxdeg)
@@ -52,13 +51,13 @@ function Linear_ACE(maxdeg::Int, ord::Int, Nprop; σ=x->x)
    #create a multiple property model
    W = rand(Nprop, length(bsis))
    LM = LinearACEModel(bsis, matrix2svector(W), evaluator = :standard) 
-   return Linear_ACE(W,LM,σ)
+   return Linear_ACE(W,LM)
 end
 
 @functor Linear_ACE #so that flux can find the parameters
  
 #forward pass
-(y::Linear_ACE)(cfg) = y.σ(_eval_linear_ACE(y.weight, y.m, cfg))
+(y::Linear_ACE)(cfg) = _eval_linear_ACE(y.weight, y.m, cfg)
 
 #energy evaluation
 function _eval_linear_ACE(W, M, cfg)
@@ -101,3 +100,35 @@ function ChainRules.rrule(::typeof(adj_evaluate), dp, W, M, cfg)
    end
    return(adj_evaluate(dp, W, M, cfg), secondAdj)
 end
+
+
+# # ------------------------------------------------------------------------
+# #    Generic non linearity layer
+# # ------------------------------------------------------------------------
+
+"""
+A layer to wrap an ACE layer in a non-linearity.
+"""
+
+struct GenLayer{TF}
+   F::TF
+end 
+
+(L::GenLayer)(x) = L.F(x)
+
+function rrule(L::GenLayer, x)
+   f = L.F(x)
+   return f, dp -> _rrule_GenLayer(L, dp, x)
+end
+
+function _rrule_GenLayer(L, dp, x)
+   return NoTangent(), dp * first(Zygote.gradient(L.F, x))
+end
+
+function rrule(::typeof(_rrule_GenLayer), L, dp, x)
+   val = _rrule_GenLayer(L, dp, x)
+   function pb(dq) 
+      return NoTangent(), NoTangent(), NoTangent(), NoTangent()
+   end 
+   return val, pb 
+end 
