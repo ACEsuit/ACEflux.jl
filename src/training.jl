@@ -18,8 +18,8 @@ end
 #the optimizer (flux object), the size of the batch, number of epochs,
 #multi threading or single thread (boolean)
 function opt_Flux(loss, θ, X, Y, opt, epochs; b=length(X))
-   trn_loss = []
-   gradN = []
+   trn_loss = Float64[]
+   gradN = Float64[]
    append!(trn_loss, mean(loss.(X,Y)))
    n = 0 #a hack so that n exists outside the loop
 
