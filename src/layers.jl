@@ -122,13 +122,16 @@ function rrule(L::GenLayer, x)
 end
 
 function _rrule_GenLayer(L, dp, x)
-   return NoTangent(), dp * first(Zygote.gradient(L.F, x))
+   _, pb = Zygote.pullback(L.F, x)
+   return NoTangent(), first(pb(dp))
 end
 
 function rrule(::typeof(_rrule_GenLayer), L, dp, x)
    val = _rrule_GenLayer(L, dp, x)
    function pb(dq) 
-      return NoTangent(), NoTangent(), NoTangent(), NoTangent()
+      gx = Zygote.hessian(L.F, x) * dq[2]
+      gdp = sum(first(Zygote.gradient(L.F, x)) .* dq[2]) #TODO is this needed?
+      return NoTangent(), NoTangent(), NoTangent(), gx
    end 
    return val, pb 
 end 
