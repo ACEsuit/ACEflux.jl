@@ -30,7 +30,7 @@ function opt_Flux(loss, θ, X, Y, opt, epochs; b=length(X))
       #we sample our training data and get the gradient
       StatsBase.sample!(1:length(X), indx; replace=false)
 
-      if(e%50==0)
+      if(e%2==0)
          tic = time()
          g = gsum(tmap((x,y) -> Zygote.gradient(()->loss(x,y), θ), X[indx], Y[indx]))
          
@@ -42,8 +42,10 @@ function opt_Flux(loss, θ, X, Y, opt, epochs; b=length(X))
          end
          append!(gradN,n)
          toc = time()
-
+         @show "#############################"
+         @show epochs
          @show (epochs - e)*(toc - tic) / 3600
+         @show last(trn_loss)
       else
          #both have similar performance
          g = gsum(tmap((x,y) -> Zygote.gradient(()->loss(x,y), θ), X[indx], Y[indx]))
