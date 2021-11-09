@@ -43,7 +43,7 @@ function opt_Flux(loss, θ, X, Y, opt, epochs; b=length(X))
          append!(gradN,n)
          toc = time()
          @show "#############################"
-         @show epochs
+         @show e
          @show (epochs - e)*(toc - tic) / 3600
          @show last(trn_loss)
       else
