@@ -31,7 +31,7 @@ function opt_Flux(loss, θ, X, Y, opt, epochs; b=length(X))
       StatsBase.sample!(1:length(X), indx; replace=false)
 
       if(e%2==0)
-         tic = time()
+         #tic = time()
          g = gsum(tmap((x,y) -> Zygote.gradient(()->loss(x,y), θ), X[indx], Y[indx]))
          
          Flux.Optimise.update!(opt, θ, g)
@@ -41,10 +41,10 @@ function opt_Flux(loss, θ, X, Y, opt, epochs; b=length(X))
             n += sum(abs.(gp))
          end
          append!(gradN,n)
-         toc = time()
+         #toc = time()
          @show "#############################"
          @show e
-         @show (epochs - e)*(toc - tic) / 3600
+         #@show (epochs - e)*(toc - tic) / 3600
          @show last(trn_loss)
       else
          #both have similar performance
