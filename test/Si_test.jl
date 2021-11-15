@@ -36,3 +36,7 @@ opt = ADAM(0.1)
   #two particle basis
   #inner and outter cutoffs (also p and p0)
 
+
+# using BSON: @save
+  
+# @save "mymodel.bson" model
