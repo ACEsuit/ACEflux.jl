@@ -49,6 +49,7 @@ function opt_Flux(loss, θ, X, Y, opt, epochs, nthrds, fname; b=length(X), logra
          @show last(trn_loss)
 
          @save string(fname, ".bson") θ
+         @save string(fname, ".bson") trn_loss
 
          tic = time()
 
