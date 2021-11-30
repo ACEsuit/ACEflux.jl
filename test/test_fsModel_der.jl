@@ -8,7 +8,7 @@ using ACEbase
 FS(ϕ) = ϕ[1] + sqrt(abs(ϕ[2]) + 1/100) - 1/10
 
 model = Chain(Linear_ACE(3, 4, 2), GenLayer(FS), sum)
-FluxModel = FluxPotential(model, 6.0) 
+pot = FluxPotential(model, 6.0) 
 
 ##
 
@@ -20,17 +20,17 @@ FluxModel = FluxPotential(model, 6.0)
 at = bulk(:Cu, cubic=true) * 3
 rattle!(at,0.6) 
 
-s = size(FluxModel.model[1].weight)
+s = size(pot.model[1].weight);
 
 function F(c)
-   FluxModel.model[1].weight = reshape(c, s[1], s[2])
-   return FluxEnergy(FluxModel, at)
+   pot.model[1].weight = reshape(c, s[1], s[2])
+   return energy(pot, at)
 end
 
 function dF(c)
-   FluxModel.model[1].weight = reshape(c, s[1], s[2])
+   pot.model[1].weight = reshape(c, s[1], s[2])
    p = params(model)
-   dE = Zygote.gradient(()->FluxEnergy(FluxModel, at), p)
+   dE = Zygote.gradient(()->energy(pot, at), p)
    return(dE[p[1]])
 end
 
@@ -45,17 +45,17 @@ println()
 @info "dForces, d{sum(F)}/dP"
 
 sqr(x) = x.^2
-ffrcs(FluxModel, at) = sum(sum(sqr.(FluxForces(FluxModel, at))))
+ffrcs(pot, at) = sum(sum(sqr.(forces(pot, at))))
 
 function F(c)
-   FluxModel.model[1].weight = reshape(c, s[1], s[2])
-   return ffrcs(FluxModel, at)
+   pot.model[1].weight = reshape(c, s[1], s[2])
+   return ffrcs(pot, at)
 end
 
 function dF(c)
-   FluxModel.model[1].weight = reshape(c, s[1], s[2])
+   pot.model[1].weight = reshape(c, s[1], s[2])
    p = params(model)
-   dF = Zygote.gradient(() -> ffrcs(FluxModel, at), p)
+   dF = Zygote.gradient(() -> ffrcs(pot, at), p)
    return(dF[p[1]])
 end
 
@@ -69,17 +69,17 @@ println()
 
 @info "dloss, d{E+sum(F)}/dP"
 
-loss(FluxModel, at) = FluxEnergy(FluxModel, at) + sum(sum(sqr.(FluxForces(FluxModel, at))))
+loss(pot, at) = energy(pot, at) + sum(sum(sqr.(forces(pot, at))))
 
 function F2(c)
-   FluxModel.model[1].weight = reshape(c, s[1], s[2])
-   return loss(FluxModel, at)
+   pot.model[1].weight = reshape(c, s[1], s[2])
+   return loss(pot, at)
 end
 
 function dF2(c)
-   FluxModel.model[1].weight = reshape(c, s[1], s[2])
+   pot.model[1].weight = reshape(c, s[1], s[2])
    p = params(model)
-   dL = Zygote.gradient(()->loss(FluxModel, at), p)
+   dL = Zygote.gradient(()->loss(pot, at), p)
    return(dL[p[1]])
 end
 

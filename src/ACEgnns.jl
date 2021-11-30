@@ -1,10 +1,9 @@
 module ACEgnns
 
-export opt_Flux, GenLayer, Linear_ACE, FluxPotential, gsum, FluxEnergy, FluxForces, neighbourfinder, svector2matrix
+export opt_Flux, GenLayer, Linear_ACE, FluxPotential, gsum, svector2matrix, neighbours_R
 
-include("JuLIP_wrapper.jl")
-include("layers.jl")
 include("calculator.jl")
+include("layers.jl")
 include("training.jl")
 
 end
