@@ -83,4 +83,4 @@ Y = [energy(SW,at), forces(SW,at)]
 @btime gradient(()->loss(at,Y), p)
 
 @info("grad only energy loss")
-@btime gradient(()->lE(at,Y), p)
+@btime gradient(()->lE(at,Y), p);

@@ -66,10 +66,23 @@ function _eval_linear_ACE(W, M, cfg)
    return E
 end
 
+function diag2vect(A)
+   n = Int(sqrt(length(A[1])))
+   tmp = []
+   for i in 1:n
+      for j in 1:n
+         if(i==j)
+            push!(tmp, A[i,j])
+         end
+      end
+   end
+   return tmp
+end
+
 function adj_evaluate(dp, W, M::ACE.LinearACEModel, cfg)
    set_params!(M, matrix2svector(W)) #TODO is it necesary?
    gp_ = ACE.grad_params(M, cfg)
-   gp = [ ACE.val.(a .* dp) for a in gp_ ]
+   gp = [ ACE.val.(diag2vect(a) .* dp) for a in gp_ ]
    g_cfg = ACE._rrule_evaluate(dp, M, cfg) # rrule for cfg only...
    return NoTangent(), svector2matrix(gp), NoTangent(), g_cfg
 end
@@ -87,7 +100,7 @@ function ChainRules.rrule(::typeof(adj_evaluate), dp, W, M, cfg)
       dq = dq_[4]  # Vector of SVector
       dq_ace = [ ACE.DState(rr = dqi) for dqi in dq ]
      
-      grad = ACE.adjoint_EVAL_D1(M, M.evaluator, cfg, dq_ace)
+      grad = ACE.adjoint_EVAL_D(M, M.evaluator, cfg, dq_ace)
 
       # gradient w.r.t parameters: 
       sdp = SVector(dp...)
@@ -95,8 +108,7 @@ function ChainRules.rrule(::typeof(adj_evaluate), dp, W, M, cfg)
 
       # gradient w.r.t. dp    # TODO: remove the |> Vector? 
       grad_dp = sum( M.c[k] * grad[k] for k = 1:length(grad) )  |> Vector 
-
-      return(NoTangent(), grad_dp, svector2matrix(grad_params), NoTangent(), NoTangent())
+      return(NoTangent(), ACE.val.(grad_dp), svector2matrix(grad_params), NoTangent(), NoTangent())
    end
    return(adj_evaluate(dp, W, M, cfg), secondAdj)
 end
