@@ -104,7 +104,13 @@ function ChainRules.rrule(::typeof(adj_evaluate), dp, W, M, cfg)
 
       # gradient w.r.t parameters: 
       sdp = SVector(dp...)
-      grad_params = grad .* Ref(sdp)
+      grad_params = try
+         grad .* Ref(sdp)
+      catch
+         @show grad
+         @show Ref(sdp)
+         grad .* Ref(sdp)
+      end
 
       # gradient w.r.t. dp    # TODO: remove the |> Vector? 
       grad_dp = sum( M.c[k] * grad[k] for k = 1:length(grad) )  |> Vector 
