@@ -1,4 +1,4 @@
-using ACEgnns, JuLIP, ACE, Flux, Zygote
+using ACEflux, JuLIP, ACE, Flux, Zygote
 using ACE: State
 using LinearAlgebra
 using Printf
