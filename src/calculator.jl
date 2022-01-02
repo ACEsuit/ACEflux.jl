@@ -1,4 +1,4 @@
-using ACEgnns, JuLIP, StaticArrays
+using ACEflux, JuLIP, StaticArrays
 import ChainRulesCore, ChainRules
 import ChainRulesCore: rrule, NoTangent
 import ACE: PositionState

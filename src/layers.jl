@@ -2,6 +2,7 @@ using Flux, ForwardDiff, Zygote, StaticArrays
 import ChainRulesCore, ChainRules
 import ChainRulesCore: rrule, NoTangent, ZeroTangent
 using Flux: @functor
+using ChainRules: @thunk
 
 using ACE
 using ACE: O3, State, SymmetricBasis, evaluate, LinearACEModel, set_params!, grad_params, grad_config, grad_params_config
@@ -80,9 +81,13 @@ function diag2vect(A)
 end
 
 function adj_evaluate(dp, W, M::ACE.LinearACEModel, cfg)
+   
    set_params!(M, matrix2svector(W)) #TODO is it necesary?
+   
    gp_ = ACE.grad_params(M, cfg)
+   
    gp = [ ACE.val.(diag2vect(a) .* dp) for a in gp_ ]
+   
    g_cfg = ACE._rrule_evaluate(dp, M, cfg) # rrule for cfg only...
    return NoTangent(), svector2matrix(gp), NoTangent(), g_cfg
 end
@@ -104,13 +109,7 @@ function ChainRules.rrule(::typeof(adj_evaluate), dp, W, M, cfg)
 
       # gradient w.r.t parameters: 
       sdp = SVector(dp...)
-      grad_params = try
-         grad .* Ref(sdp)
-      catch
-         @show grad
-         @show Ref(sdp)
-         grad .* Ref(sdp)
-      end
+      grad_params = grad .* Ref(sdp)
 
       # gradient w.r.t. dp    # TODO: remove the |> Vector? 
       grad_dp = sum( M.c[k] * grad[k] for k = 1:length(grad) )  |> Vector 

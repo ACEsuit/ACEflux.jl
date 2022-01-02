@@ -3,6 +3,5 @@ export opt_Flux, GenLayer, Linear_ACE, FluxPotential, gsum, svector2matrix, neig
 
 include("calculator.jl")
 include("layers.jl")
-include("training.jl")
 
 end

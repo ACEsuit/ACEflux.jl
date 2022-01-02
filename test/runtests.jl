@@ -1,6 +1,6 @@
-using ACEgnns
+using ACEflux
 using Test
 
-@testset "ACEgnns.jl" begin
+@testset "ACEflux.jl" begin
     # Write your tests here.
 end
