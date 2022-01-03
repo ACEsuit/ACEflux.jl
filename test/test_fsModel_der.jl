@@ -7,7 +7,7 @@ using ACEbase
 
 FS(ϕ) = ϕ[1] + sqrt(abs(ϕ[2]) + 1/100) - 1/10
 
-model = Chain(Linear_ACE(3, 4, 2), GenLayer(FS), sum)
+model = Chain(Linear_ACE(2, 4, 2), GenLayer(FS), sum)
 pot = FluxPotential(model, 6.0) 
 
 ##

@@ -42,7 +42,7 @@ mutable struct Linear_ACE{TW,TM}
    m::TM 
 end
 
-function Linear_ACE(maxdeg::Int, ord::Int, Nprop)
+function Linear_ACE(ord::Int, maxdeg::Int, Nprop)
     #building the basis
     Bsel = SimpleSparseBasis(ord, maxdeg)
     B1p = ACE.Utils.RnYlm_1pbasis(; maxdeg=maxdeg)
@@ -84,12 +84,14 @@ function adj_evaluate(dp, W, M::ACE.LinearACEModel, cfg)
    
    set_params!(M, matrix2svector(W)) #TODO is it necesary?
    
-   gp_ = ACE.grad_params(M, cfg)
+   function g_par()
+      gp_ = ACE.grad_params(M, cfg)
+      gp = [ ACE.val.(diag2vect(a) .* dp) for a in gp_ ]
+      return svector2matrix(gp)
+   end
    
-   gp = [ ACE.val.(diag2vect(a) .* dp) for a in gp_ ]
-   
-   g_cfg = ACE._rrule_evaluate(dp, M, cfg) # rrule for cfg only...
-   return NoTangent(), svector2matrix(gp), NoTangent(), g_cfg
+   g_cfg = () -> ACE._rrule_evaluate(dp, M, cfg) # rrule for cfg only...
+   return NoTangent(), g_par(), NoTangent(), g_cfg()
 end
 
 function ChainRules.rrule(::typeof(_eval_linear_ACE), W, M, cfg)
@@ -108,12 +110,17 @@ function ChainRules.rrule(::typeof(adj_evaluate), dp, W, M, cfg)
       grad = ACE.adjoint_EVAL_D(M, M.evaluator, cfg, dq_ace)
 
       # gradient w.r.t parameters: 
-      sdp = SVector(dp...)
-      grad_params = grad .* Ref(sdp)
+      #sdp = SVector(dp...)
+      #grad_params = grad .* Ref(sdp)
+      #svector2matrix(grad_params)
+      grad_params = zeros(length(dp), length(grad))
+      for i in 1:length(dp)
+         grad_params[i,:] = dp[i] .* ACE.val.(grad)
+      end
 
       # gradient w.r.t. dp    # TODO: remove the |> Vector? 
       grad_dp = sum( M.c[k] * grad[k] for k = 1:length(grad) )  |> Vector 
-      return(NoTangent(), ACE.val.(grad_dp), svector2matrix(grad_params), NoTangent(), NoTangent())
+      return(NoTangent(), ACE.val.(grad_dp), grad_params, NoTangent(), NoTangent())
    end
    return(adj_evaluate(dp, W, M, cfg), secondAdj)
 end

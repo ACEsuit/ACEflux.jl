@@ -11,7 +11,7 @@ Nprop =  2
 R_i = ACE.ACEConfig([ACE.State(rr=rand(SVector{3, Float64})) for _ = 1:10]);
 
 @info("linear ACE build")
-ϕ = @btime Linear_ACE(maxdeg, ord, Nprop)
+ϕ = @btime Linear_ACE(ord, maxdeg, Nprop)
 
 @info("linear ACE eval")
 @btime ϕ(R_i)

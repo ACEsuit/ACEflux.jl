@@ -5,7 +5,7 @@ using Printf
 using Test, ACE.Testing
 using ACEbase
 
-model = Chain(Linear_ACE(3, 2, 2), Dense(2, 3, σ), Dense(3, 1), sum)
+model = Chain(Linear_ACE(2, 7, 4), Dense(4, 3, σ), Dense(3, 1), sum)
 
 pot = FluxPotential(model, 5.0) #model, cutoff
 
