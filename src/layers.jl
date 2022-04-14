@@ -42,18 +42,51 @@ mutable struct Linear_ACE{TW,TM}
    m::TM 
 end
 
-function Linear_ACE(ord::Int, maxdeg::Int, Nprop)
-    #building the basis
-    Bsel = SimpleSparseBasis(ord, maxdeg)
-    B1p = ACE.Utils.RnYlm_1pbasis(; maxdeg=maxdeg)
-    φ = ACE.Invariant()
-    bsis = SymmetricBasis(φ, B1p, O3(), Bsel)
+function Linear_ACE(; ord::Int = 2, maxdeg = 6, wL = 1.5,
+                             Bsel = nothing, p = 1, rcut=5.0)
+   Nprop = 2
+   if Bsel == nothing
+      if maxdeg isa Integer
+         Bsel = ACE.SparseBasis(; maxorder = ord, p = p,
+                                  weight = Dict(:l => wL, :n => 1.0),
+                                  default_maxdeg = maxdeg)
+         maxdeg_ = maxdeg
+      elseif maxdeg isa Dict
+         maxdeg_ = maximum(values(maxdeg))
+         Bsel = ACE.SparseBasis(; maxorder = ord, p = p,
+                                  weight = Dict(:l => wL, :n => 1.0),
+                                  maxdegs = maxdeg, )
+      else
+         error("can't read the input")
+      end
+   end
+   #building the basis
+   r0 = JuLIP.rnn(:Mo)
+   B1p = ACE.Utils.RnYlm_1pbasis(; maxdeg = maxdeg_, rcut = rcut,
+                                   Bsel = Bsel, r0 = r0,
+                                   rin = 0.65 * r0, pin = 0 )
+   φ = ACE.Invariant()
+   bsis = SymmetricBasis(φ, B1p, Bsel)
 
    #create a multiple property model
-   W = rand(Nprop, length(bsis))
-   LM = LinearACEModel(bsis, matrix2svector(W), evaluator = :standard) 
+   W = zeros(Nprop, length(bsis))
+   LM = ACE.LinearACEModel(bsis, ACEflux.matrix2svector(W), evaluator = :standard)
    return Linear_ACE(W,LM)
 end
+
+#old version
+# function Linear_ACE(ord::Int, maxdeg::Int, Nprop)
+#     #building the basis
+#     Bsel = SimpleSparseBasis(ord, maxdeg)
+#     B1p = ACE.Utils.RnYlm_1pbasis(; maxdeg=maxdeg)
+#     φ = ACE.Invariant()
+#     bsis = SymmetricBasis(φ, B1p, O3(), Bsel)
+
+#    #create a multiple property model
+#    W = rand(Nprop, length(bsis))
+#    LM = LinearACEModel(bsis, matrix2svector(W), evaluator = :standard) 
+#    return Linear_ACE(W,LM)
+# end
 
 @functor Linear_ACE #so that flux can find the parameters
  
@@ -101,6 +134,9 @@ end
 
 function ChainRules.rrule(::typeof(adj_evaluate), dp, W, M, cfg)
    function secondAdj(dq_)
+      @show size(dp)
+      @show size(dq_)
+      @show size(W)
       @assert dq_[1] == dq_[2] == dq_[3] == ZeroTangent()
       @assert dq_[4] isa AbstractVector{<: SVector}
       @assert length(dq_[4]) == length(cfg)
