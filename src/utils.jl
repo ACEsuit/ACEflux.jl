@@ -1,4 +1,5 @@
 using ACEflux
+import Base.copyto!
 
 
 function read_pymatgen(file)
@@ -47,7 +48,6 @@ function make_fg_multi(pot, loss, X, Y, λ, procs)\
    @show nprocs()
 
    @everywhere using JuLIP, ACEflux, Zygote, Flux, LinearAlgebra
-   import Base.copyto!
 
 
    #distribute the values to all processors
