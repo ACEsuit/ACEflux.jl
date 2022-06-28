@@ -4,10 +4,12 @@ using LinearAlgebra
 using Printf
 using Test, ACE.Testing
 using ACEbase
+using StaticArrays
 
+using ACEflux: Linear_ACE, GenLayer
 FS(ϕ) = ϕ[1] + sqrt(abs(ϕ[2]) + 1/100) - 1/10
 
-model = Chain(Linear_ACE(2, 4, 2), GenLayer(FS), sum)
+model = Chain(Linear_ACE(;ord = 2, maxdeg = 4), GenLayer(FS), sum)
 pot = FluxPotential(model, 6.0) 
 
 ##
@@ -29,7 +31,7 @@ end
 
 function dF(c)
    pot.model[1].weight = reshape(c, s[1], s[2])
-   p = params(model)
+   p = Flux.params(model)
    dE = Zygote.gradient(()->energy(pot, at), p)
    return(dE[p[1]])
 end
@@ -54,7 +56,7 @@ end
 
 function dF(c)
    pot.model[1].weight = reshape(c, s[1], s[2])
-   p = params(model)
+   p = Flux.params(model)
    dF = Zygote.gradient(() -> ffrcs(pot, at), p)
    return(dF[p[1]])
 end
@@ -78,7 +80,7 @@ end
 
 function dF2(c)
    pot.model[1].weight = reshape(c, s[1], s[2])
-   p = params(model)
+   p = Flux.params(model)
    dL = Zygote.gradient(()->loss(pot, at), p)
    return(dL[p[1]])
 end

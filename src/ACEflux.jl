@@ -3,6 +3,6 @@ export read_pymatgen, opt_Flux, GenLayer, Linear_ACE, FluxPotential, gsum, svect
 
 include("calculator.jl")
 include("layers.jl")
-include("utils.jl")
+#include("utils.jl")
 
 end

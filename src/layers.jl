@@ -42,9 +42,8 @@ mutable struct Linear_ACE{TW,TM}
    m::TM 
 end
 
-function Linear_ACE(; ord::Int = 2, maxdeg = 6, wL = 1.5,
+function Linear_ACE(; ord::Int = 2, maxdeg = 6, Nprop = 2, wL = 1.5,
                              Bsel = nothing, p = 1, rcut=5.0)
-   Nprop = 2
    if Bsel == nothing
       if maxdeg isa Integer
          Bsel = ACE.SparseBasis(; maxorder = ord, p = p,
@@ -134,9 +133,9 @@ end
 
 function ChainRules.rrule(::typeof(adj_evaluate), dp, W, M, cfg)
    function secondAdj(dq_)
-      @show size(dp)
-      @show size(dq_)
-      @show size(W)
+      #@show size(dp)
+      ##@show size(dq_)
+      #@show size(W)
       @assert dq_[1] == dq_[2] == dq_[3] == ZeroTangent()
       @assert dq_[4] isa AbstractVector{<: SVector}
       @assert length(dq_[4]) == length(cfg)
