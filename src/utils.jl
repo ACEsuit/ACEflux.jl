@@ -1,11 +1,10 @@
 using ACEflux
 import Base.copyto!
-import StaticArrays
-using PyCall, ASE
-using Distributed
+
 
 function read_pymatgen(file)
-
+   import StaticArrays
+   using PyCall, ASE
    ase = pyimport("ase")
    pmt = pyimport("pymatgen.core")
    pmt2ase = pyimport("pymatgen.io.ase")
@@ -41,7 +40,7 @@ end
 
 function make_fg_multi(pot, loss, X, Y, λ, procs)\
    #import packages to all procs
-  
+   using Distributed
    Distributed.addprocs(procs)
    @everywhere using Pkg
    @everywhere Pkg.activate(pwd())
